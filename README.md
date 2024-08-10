@@ -7,6 +7,7 @@ This repository hosts a FastAPI backend that interacts with the Solana blockchai
 - **Blockchain Interaction**: Interfaces with the Solana blockchain to fetch and update NFT data.
 - **REST API**: Exposes endpoints that serve NFT data to the frontend application.
 - **Database Management**: Keeps track of NFTs in a database, ensuring up-to-date information.
+- **Testing Support**: A test directory is available for inserting NFT data into the database and testing the reading of Solana NFTs.
 - **Configurable Environment**: Environment variables control various aspects of the application, including database connections and API endpoints.
 
 ## Getting Started
