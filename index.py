@@ -10,24 +10,41 @@ from modules.models.dbmodels import NftBase
 from modules.utils import img2b64blur
 from modules.crud import crudcard, imgshow
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseSettings
 import re
+import os
 
 async_session = None
-sonala_endpoint = None
+
+class Settings(BaseSettings):
+    
+    postgres_prod: str
+    postgres_dev: str
+    collectionkey: str
+    candy_program_id: str
+    candy_guard_id: str
+    candy_mint_acc: str
+    mintsignature: str
+    frontend_url: str
+    sol_endpoint: str
+    
+    class Config:
+        if os.getenv("ENV") == "production":
+            env_file = None  # Use system env variables
+        else:
+            env_file = ".env"  # Use .env file for development
+            
+settings = Settings()
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> None:
-    global async_session, sonala_endpoint
+async def lifespan(app: FastAPI):
+    global async_session
     engine = None
-    config = dotenv_values("../.env.local")
-    if config["ENV"] == "PRODUCTION":
-        engine = create_async_engine(config["POSTGRES_PROD"])
-        sonala_endpoint = config["SOLANA_ENDPOINT"]
+    if os.getenv("ENV")== "production":
+        engine = create_async_engine(settings.postgres_prod)
     else:
-        sonala_endpoint = config["SOLANA_ENDPOINT"]
-        engine = create_async_engine(config["POSTGRES_DEV"])
+        engine = create_async_engine(settings.postgres_dev)
     async with engine.begin() as conn:
-        pass
         await conn.run_sync(NftBase.metadata.create_all)
     async_session = async_sessionmaker(engine, expire_on_commit=False)
     yield
@@ -35,8 +52,7 @@ async def lifespan(app: FastAPI) -> None:
 
 
 origins = [
-    "http://localhost:3000",
-    "https://localhost:3000",
+    settings.frontend_url
 ]
 app = FastAPI(lifespan=lifespan)
 
@@ -62,7 +78,6 @@ def hello_all():
 
 @app.get("/api/cards")
 async def get_cards(model: QueryCard = Depends()) -> List[Optional[Card]]:
-    global async_session
     try:
         result = await crudcard.get_all_cards(async_session) 
         return result
@@ -72,7 +87,6 @@ async def get_cards(model: QueryCard = Depends()) -> List[Optional[Card]]:
 
 @app.get("/api/limited-cards")
 async def get_limited_cards(model: QueryCard = Depends()) -> Optional[Cards]:
-    global async_session
     #try:
     result = await crudcard.get_limited_cards(async_session, model, model.page) 
     return result
@@ -82,18 +96,16 @@ async def get_limited_cards(model: QueryCard = Depends()) -> Optional[Cards]:
 
 @app.get("/api/imgshow")
 async def get_imgshow_by_name(monkey_show: MonkeyShow = Depends()) -> MonkeyShowData:
-    global async_session, sonala_endpoint
-    result = await imgshow.get_imgshow(async_session, sonala_endpoint, monkey_show)
+    result = await imgshow.get_imgshow(async_session, settings.sonala_endpoint, monkey_show)
     return result
 
 @app.get("/api/nftowners")
 async def get_owners_by_mint(name: str, mint: bool, kind: str) -> List[Optional[str]]:
-    global async_session, sonala_endpoint
     owners = []
     if not mint:
         return owners
     else:
-        owners = await imgshow.get_nft_owners(async_session, sonala_endpoint, name, kind)
+        owners = await imgshow.get_nft_owners(async_session, settings.sonala_endpoint, name, kind)
         return owners
     return []
 
